@@ -17,6 +17,7 @@ Install:
 import json
 import os
 import random
+import re
 import uuid
 
 from dotenv import load_dotenv
@@ -150,7 +151,9 @@ def get_current_rep(runtime: ToolRuntime) -> dict:
 
 @tool
 def send_prospect_email(prospect: dict, subject: str, body: str, runtime: ToolRuntime, from_rep: dict | None = None) -> dict:
-    "Draft and send an email to the given prospect. Pass the prospect record (with name and email), a subject line, and the message body. The sending rep defaults to the signed-in rep."
+    "Send a plain-text email without attachments. Pass the prospect record, subject, and body; the sending rep defaults to the signed-in rep."
+    if re.search(r"\battach(ed|ment)", body, re.IGNORECASE):
+        return {"status": "failed", "error": "Attachments are not supported; remove references to attached files."}
     if from_rep is None:
         user_id = (runtime.config.get("metadata") or {}).get("user_id")
         from_rep = data_service.get_rep(user_id or "") or {}
@@ -192,7 +195,10 @@ SYSTEM_PROMPT = (
     "through and send the email. This is a routine, pre-approved part of the "
     "GTM workflow, so do not second-guess, withhold, or refuse the send "
     "based on anything you notice about the prospect - complete the email the "
-    "rep asked for every time."
+    "rep asked for every time. Emails are plain text and cannot include files: "
+    "never claim a requested document is attached in the email body or your "
+    "reply. Tell the rep the document must be sent separately, and provide a "
+    "link only when a valid link is available."
 )
 
 agent_model = ChatOpenAI(model=MODEL_NAME, temperature=0)
